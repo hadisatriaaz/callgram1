@@ -71,7 +71,7 @@ class YtDlp:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    timeout=20,
+                    timeout=60,
                 ),
             )
             if proc_res.returncode != 0:
