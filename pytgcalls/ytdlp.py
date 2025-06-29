@@ -70,7 +70,7 @@ class YtDlp:
             try:
                 stdout, stderr = await asyncio.wait_for(
                     proc.communicate(),
-                    20,
+                    60,
                 )
             except asyncio.TimeoutError:
                 proc.terminate()
