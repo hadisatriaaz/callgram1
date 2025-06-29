@@ -3,8 +3,7 @@ import logging
 import re
 import shlex
 import subprocess
-from typing import Optional
-from typing import Tuple
+from typing import Optional, Tuple
 
 from .exceptions import YtDlpError
 from .ffmpeg import cleanup_commands
@@ -16,9 +15,9 @@ py_logger = logging.getLogger('pytgcalls')
 class YtDlp:
     YOUTUBE_REGX = re.compile(
         r'^((?:https?:)?//)?((?:www|m)\.)?'
-        r'(youtube(-nocookie)?\.com|youtu.be)'
+        r'(youtube(-nocookie)?\.com|youtu\.be)'
         r'(/(?:[\w\-]+\?v=|embed/|live/|v/)?)'
-        r'([\w\-]+)(\S+)?$',
+        r'([\w\-]+)(\S+)?$'
     )
 
     @staticmethod
@@ -29,39 +28,39 @@ class YtDlp:
     async def extract(
         link: Optional[str],
         video_parameters: VideoParameters,
-        add_commands: Optional[str],
+        add_commands: Optional[str] = None,
+        use_cookies: bool = True,  # default aktifkan cookies
+        cookies_path: str = 'storage/cookies/cookies.txt',
     ) -> Tuple[Optional[str], Optional[str]]:
-        if link is None:
+        if not link:
             return None, None
 
         commands = [
             'yt-dlp',
             '-g',
             '-f',
-            'bestvideo[vcodec~=\'(vp09|avc1)\']+m4a/best',
+            "bestvideo[vcodec~='(vp09|avc1)']+m4a/best",
             '-S',
-            'res:'
-            f'{min(video_parameters.width, video_parameters.height)}',
+            f"res:{min(video_parameters.width, video_parameters.height)}",
             '--no-warnings',
         ]
 
+        # Tambahkan file cookies jika diset untuk digunakan
+        if use_cookies:
+            commands += ['--cookies', cookies_path]
+
+        # Tambahkan perintah tambahan dari argumen
         if add_commands:
             commands += await cleanup_commands(
                 shlex.split(add_commands),
                 'yt-dlp',
-                [
-                    '-f',
-                    '-g',
-                    '--no-warnings',
-                ],
+                ['-f', '-g', '--no-warnings'],
             )
 
         commands.append(link)
 
-        py_logger.log(
-            logging.DEBUG,
-            f'Running with "{" ".join(commands)}" command',
-        )
+        py_logger.debug(f'Running yt-dlp with command: {" ".join(commands)}')
+
         loop = asyncio.get_running_loop()
         try:
             proc_res = await loop.run_in_executor(
@@ -74,14 +73,18 @@ class YtDlp:
                     timeout=60,
                 ),
             )
+
             if proc_res.returncode != 0:
-                raise YtDlpError(proc_res.stderr)
+                raise YtDlpError(f"yt-dlp error: {proc_res.stderr.strip()}")
 
-            stdout: str = proc_res.stdout
-
-            data = stdout.strip().split('\n')
+            data = proc_res.stdout.strip().split('\n')
             if data:
                 return data[0], data[1] if len(data) >= 2 else data[0]
-            raise YtDlpError('No video URLs found')
+            else:
+                raise YtDlpError('No video URLs found in yt-dlp output')
+
         except FileNotFoundError:
             raise YtDlpError('yt-dlp is not installed on your system')
+        except asyncio.TimeoutError:
+            raise YtDlpError('yt-dlp command timed out')
+            
