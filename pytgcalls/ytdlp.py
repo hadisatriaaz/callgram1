@@ -66,11 +66,12 @@ class YtDlp:
             proc_res = await loop.run_in_executor(
                 None,
                 lambda: subprocess.run(
+                    ['yt-dlp', '-g', '-f', 'bestaudio', '--no-warnings', '--cookies', 'storage/cookies/cookies.txt', url],
                     commands,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    timeout=60,
+                    timeout=20,
                 ),
             )
 
