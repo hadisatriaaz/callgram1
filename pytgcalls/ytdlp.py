@@ -5,13 +5,11 @@ import shlex
 import subprocess
 from typing import Optional
 from typing import Tuple
-
 from .exceptions import YtDlpError
 from .ffmpeg import cleanup_commands
 from .types.raw import VideoParameters
 
 py_logger = logging.getLogger('pytgcalls')
-
 
 class YtDlp:
     YOUTUBE_REGX = re.compile(
@@ -38,11 +36,10 @@ class YtDlp:
             'yt-dlp',
             '-g',
             '-f',
-            'bestvideo[vcodec~=\'(vp09|avc1)\']+m4a/best',
-            '-S',
-            'res:'
-            f'{min(video_parameters.width, video_parameters.height)}',
+            'bestaudio',
             '--no-warnings',
+            '--cookies',
+            'storage/cookies/cookies.txt',
         ]
 
         if add_commands:
@@ -62,7 +59,9 @@ class YtDlp:
             logging.DEBUG,
             f'Running with "{" ".join(commands)}" command',
         )
+
         loop = asyncio.get_running_loop()
+
         try:
             proc_res = await loop.run_in_executor(
                 None,
@@ -74,14 +73,16 @@ class YtDlp:
                     timeout=20,
                 ),
             )
+
             if proc_res.returncode != 0:
                 raise YtDlpError(proc_res.stderr)
 
             stdout: str = proc_res.stdout
-
             data = stdout.strip().split('\n')
+
             if data:
-                return data[0], data[1] if len(data) >= 2 else data[0]
+                return data[0], None
+
             raise YtDlpError('No video URLs found')
         except FileNotFoundError:
             raise YtDlpError('yt-dlp is not installed on your system')
